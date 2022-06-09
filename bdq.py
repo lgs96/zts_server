@@ -84,7 +84,7 @@ class Agent(object):
       # Main network
       self.qf = BranchingQNetwork(self.obs_dim, self.act_dim, self.act_num).to(self.device)
       # Target network
-      self.qf_target = MLP(self.obs_dim, self.act_dim, self.act_num).to(self.device)
+      self.qf_target = BranchingQNetwork(self.obs_dim, self.act_dim, self.act_num).to(self.device)
       
       # Initialize target parameters to match main parameters
       hard_target_update(self.qf, self.qf_target)
@@ -158,41 +158,45 @@ class Agent(object):
       # Save loss
       self.q_losses.append(qf_loss.item())
 
-   def run(self, max_step):
+   def run(self, max_step, state, action):
       step_number = 0
       total_reward = 0.
-
-      obs = self.env.reset()
       done = False
 
       # Keep interacting until agent reaches a terminal state.
-      while not (done or step_number == max_step):
-         if self.args.render:
-            self.env.render()       
+      #while not (done or step_number == max_step):
+
+      if self.eval_mode:
+         q_value = self.qf(torch.Tensor(obs).to(self.device))
+         q_argmax = torch.argmax(q_value.squeeze(0), dim = 1)
+         action = q_argmax.detach().cpu().numpy()    
+         next_obs, reward, done, _ = self.env.step(action)
+      else:
+         self.steps += 1
+
+         # Collect experience (s, a, r, s') using some policy
+         action = self.select_action(torch.Tensor(obs).to(self.device))
+         next_obs, reward, done, _ = self.env.step(action)
       
-         if self.eval_mode:
-            q_value = self.qf(torch.Tensor(obs).to(self.device))
-            q_argmax = torch.argmax(q_value.squeeze(0), dim = 1)
-            action = q_argmax.detach().cpu().numpy()    
-            next_obs, reward, done, _ = self.env.step(action)
-         else:
-            self.steps += 1
-
-            # Collect experience (s, a, r, s') using some policy
-            action = self.select_action(torch.Tensor(obs).to(self.device))
-            next_obs, reward, done, _ = self.env.step(action)
+         # Add experience to replay buffer
+         self.replay_buffer.add(obs, action, reward, next_obs, done)
          
-            # Add experience to replay buffer
-            self.replay_buffer.add(obs, action, reward, next_obs, done)
-            
-            # Start training when the number of experience is greater than batch_size
-            if self.steps > self.batch_size:
-               self.train_model()
+         # Start training when the number of experience is greater than batch_size
+         if self.steps > self.batch_size:
+            self.train_model()
 
-         total_reward += reward
-         step_number += 1
-         obs = next_obs
+      total_reward += reward
+      step_number += 1
+      obs = next_obs
       
       # Save logs
       self.logger['LossQ'] = round(np.mean(self.q_losses), 5)
-      return step_number, total_reward
+      #return step_number, total_reward
+
+class agent_runner ():
+   self.agent = Agent ()
+
+
+   def run_train ():
+
+   def run_inference ():

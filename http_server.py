@@ -20,6 +20,20 @@ async def handle(request):
     print(text)
     return web.Response(text=text)
 
+async def rl_handler(request):
+    await request.json()
+
+    print(request)
+
+    response = {}
+    response['res'] = 0
+    response['bitrate'] = 0
+    response['little_clock'] = 0
+    response['big_clock'] = 0
+
+    return response
+
+
 async def post_handler(request):
     global last_milli
     global fps
@@ -43,13 +57,8 @@ async def post_handler(request):
         counter += 1
         recv_size += object_size
 
-    #print(request.post(), request.headers)
     media_type = request.headers.get("content-type")
-    #print('Content bytes: ', len(content)/1024 'KB')
-    #image = Image.open(io.BytesIO(content))
-    #print('Time shift: ', time_shift)
     content_upload_time = current_milli_time()
-    #print('Inference finished time: ', inference_finished_time, datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
     print('Object size: ', object_size/1e6, fps, th)
 
     data = {"fps": int(fps), "th": round(float(th),2)}
@@ -63,6 +72,7 @@ def current_milli_time():
 
 app = web.Application()
 app.add_routes([web.get('/', handle),
+                web.get('/rl', rl_handler),
                 web.post('/video', post_handler)])
 
 if __name__ == '__main__':
