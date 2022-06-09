@@ -31,7 +31,7 @@ async def rl_handler(request):
     response['little_clock'] = 0
     response['big_clock'] = 0
 
-    return response
+    return web.json_response(response)
 
 
 async def post_handler(request):
