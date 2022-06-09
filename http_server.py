@@ -21,7 +21,7 @@ async def handle(request):
     return web.Response(text=text)
 
 async def rl_handler(request):
-    await request.json()
+    await request.post()
 
     print(request)
 
