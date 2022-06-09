@@ -72,7 +72,7 @@ def current_milli_time():
 
 app = web.Application()
 app.add_routes([web.get('/', handle),
-                web.get('/rl', rl_handler),
+                web.post('/rl', rl_handler),
                 web.post('/video', post_handler)])
 
 if __name__ == '__main__':
