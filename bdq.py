@@ -1,3 +1,4 @@
+from operator import truediv
 import numpy as np
 import torch
 import torch.optim as optim
@@ -62,7 +63,7 @@ class Agent(object):
                 steps=0,
                 gamma=0.99,
                 epsilon=1.0,
-                epsilon_decay=0.98,
+                epsilon_decay=0.985,
                 buffer_size=int(500),
                 batch_size=64,
                 target_update_step=50,
@@ -93,11 +94,12 @@ class Agent(object):
       ## reward 
       self.target_fps = 30
       self.max_res = 38.4
-      self.beta1 = 0.8
-      self.beta2 = 0.2
+      self.beta1 = 0.7
+      self.beta2 = 0.3
       self.current_buffer_index = 0
       self.max_current_buffer_size = 5
       self.current_buffer = [None] * self.max_current_buffer_size
+      self.end = False
 
       # Main network
       self.qf = BranchingQNetwork(self.obs_dim, self.act_dim, self.act_num).to(self.device)
@@ -136,7 +138,7 @@ class Agent(object):
 
       # cool down action
       if data['modem_temp']/1000 >= 51:
-         action = np.array([0, 0])
+         action = np.array([0, 0, 0])
 
       #print('Action: ', action, data['modem_temp']/1000)
 
@@ -202,7 +204,6 @@ class Agent(object):
    def run(self, data):
       step_number = 0
       total_reward = 0.
-      done = False
 
       obs = np.zeros(7)
       obs[0] = data['encode_fps']
@@ -213,6 +214,12 @@ class Agent(object):
       obs[5] = data['res']/100
       obs[6] = data['bitrate']
 
+      if (obs[3] >= 53):
+         done = True
+         self.end = True
+      else:
+         done = False
+      
       # Keep interacting until agent reaches a terminal state.
       #while not (done or step_number == max_step):
 
@@ -248,13 +255,13 @@ class Agent(object):
             sample_to_save = {}
             sample_to_save['prev_obs'] = self.prev_obs
             sample_to_save['action'] = self.prev_action
-            sample_to_save['reward'] = reward - 2
+            sample_to_save['reward'] = reward - 3
             sample_to_save['next_obs'] = obs
             sample_to_save['done'] = done
             self.save_current_samples(sample_to_save) 
 
-            if self.prev_obs[3] <51 and obs[3] >= 51:
-               print('Timestep:', self.steps*2, 'Delayed penealtiy reward for high temperature activated!')
+            if self.prev_obs[0][3] <51 and obs[0][3] >= 51:
+               print('Timestep:', self.steps*2, 'Delayed penalty reward for high temperature activated!')
                for  data in self.current_buffer:
                   if data != None:
                      self.replay_buffer.add(data['prev_obs'], data['action'], data['reward'], data['next_obs'], data['done'])
@@ -274,7 +281,7 @@ class Agent(object):
       self.logger['LossQ'] = round(np.mean(self.q_losses), 5)
       #return step_number, total_reward
 
-      if self.steps % 100 == 0:
+      if self.steps % 50 == 0 or done == True:
          torch.save(self.qf.state_dict(), "./save_model/model" +self.save_name+".pt")
          print("[Save model]")
 
@@ -288,7 +295,7 @@ class Agent(object):
       # bitrate reward
       br_reward = min(data['bitrate']/70, 1)
       #res_reward = min(data['res'/self.target_bitrate], 1)
-      qoe_reward = fps_reward + self.beta1*res_reward + self.beta2*res_reward
+      qoe_reward = fps_reward + self.beta1*res_reward + self.beta2*br_reward
       
       ## temperature reward
       temp_reward = 0
@@ -314,14 +321,17 @@ class agent_runner:
       device = torch.device('cuda', index=args.gpu_index) if torch.cuda.is_available() else torch.device('cpu')
       #device = torch.device('cpu')
       obs_dim = 7
-      act_dim = 2
+      act_dim = 3
       act_num = 3
 
       self.agent = Agent (args, device, obs_dim, act_dim ,act_num)
       print('Start to run RL agent')
 
    def run_train(self, data):
-      action, reward = self.agent.run(data)
-      client_action = action - 1
-      #print('Obs: ', data, 'Action: ', client_action, 'Reward: ', reward)
-      return client_action
+      if self.agent.end == False:
+         action, reward = self.agent.run(data)
+         client_action = action - 1
+         #print('Obs: ', data, 'Action: ', client_action, 'Reward: ', reward)
+         return client_action
+      else:
+         return np.array([0,0,0])

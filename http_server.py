@@ -22,6 +22,8 @@ async def handle(request):
     name = request.match_info.get('name', "Anonymous")
     text = "Hello, " + name
     print(text)
+    rl_agent.agent.end = False
+
     return web.Response(text=text)
 
 async def rl_handler(request):
@@ -36,15 +38,14 @@ async def rl_handler(request):
 
     response = {}
     response['res'] = actions[0]
-    response['bitrate'] = 0
-    response['clock'] = actions[1]
+    response['bitrate'] = actions[1]
+    response['clock'] = actions[2]
 
-    data = {"res": int(actions[0]), "bitrate": int(0), "clock":  int(actions[1])}
+    data = {"res": int(actions[0]), "bitrate": int(actions[1]), "clock":  int(actions[2])}
 
     #print(data)
 
     return web.json_response(data)
-
 
 async def post_handler(request):
     global last_milli
@@ -78,6 +79,8 @@ async def post_handler(request):
     #print('Object size: ', object_size/1e6, fps, th)
 
     data = {"fps": int(fps), "th": round(float(th),2)}
+
+    #print(data)
 
     response = web.json_response(data)
 
