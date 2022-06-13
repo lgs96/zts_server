@@ -5,6 +5,9 @@ import torch.optim as optim
 import torch.nn.functional as F
 import random
 import easydict
+from utils import utils
+import csv
+
 from torch.optim import lr_scheduler
 from datetime import datetime
 
@@ -63,7 +66,7 @@ class Agent(object):
                 steps=0,
                 gamma=0.99,
                 epsilon=1.0,
-                epsilon_decay=0.985,
+                epsilon_decay=0.99,
                 buffer_size=int(500),
                 batch_size=64,
                 target_update_step=50,
@@ -217,6 +220,7 @@ class Agent(object):
       if (obs[3] >= 53):
          done = True
          self.end = True
+         self.steps = 0
       else:
          done = False
       
@@ -259,10 +263,11 @@ class Agent(object):
             sample_to_save['next_obs'] = obs
             sample_to_save['done'] = done
             self.save_current_samples(sample_to_save) 
+            self.save_log (self.prev_obs[0], self.prev_action, reward)
 
             if self.prev_obs[0][3] <51 and obs[0][3] >= 51:
                print('Timestep:', self.steps*2, 'Delayed penalty reward for high temperature activated!')
-               for  data in self.current_buffer:
+               for data in self.current_buffer:
                   if data != None:
                      self.replay_buffer.add(data['prev_obs'], data['action'], data['reward'], data['next_obs'], data['done'])
          
@@ -282,6 +287,7 @@ class Agent(object):
       #return step_number, total_reward
 
       if self.steps % 50 == 0 or done == True:
+         utils.mkdir('./save_model')
          torch.save(self.qf.state_dict(), "./save_model/model" +self.save_name+".pt")
          print("[Save model]")
 
@@ -310,12 +316,28 @@ class Agent(object):
       self.current_buffer_index %= self.max_current_buffer_size
 
 
+   def save_log (self, data ,act, reward):
+      save_path = './result/log' + self.save_name + '.csv'
+
+      data['res_action'] = act[0]
+      data['bitrate_action'] = act[1]
+      data['clock'] = act[2]
+      data['rewward'] = reward
+
+      if self.steps == 0:
+         utils.mkdir('./result')
+         with open(save_path, 'w') as file:
+            header = data.keys()
+            self.writer = csv.DictWriter(file, fieldnames=header)
+      self.writer.writerow(data)
+
+
 class agent_runner:
    def __init__(self):
       args = easydict.EasyDict({
          "algo": 'ddqn',
          "load_saved": False,
-         "load_path": None,
+         "load_path": "./save_model/model2022-06-13-06-06-35.pt",
          "gpu_index": 0
       })
       device = torch.device('cuda', index=args.gpu_index) if torch.cuda.is_available() else torch.device('cpu')

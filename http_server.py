@@ -3,6 +3,7 @@ from starlette.responses import PlainTextResponse, Response, JSONResponse
 from django.http import HttpResponse
 
 from bdq import *
+from utils import *
 
 import time
 import json
@@ -20,7 +21,7 @@ rl_agent = agent_runner()
 
 async def handle(request):
     name = request.match_info.get('name', "Anonymous")
-    text = "Hello, " + name
+    text = "Reset, " + name
     print(text)
     rl_agent.agent.end = False
 
@@ -107,7 +108,7 @@ def current_milli_time():
     return int(round(time.time()*1000))
 
 app = web.Application()
-app.add_routes([web.get('/', handle),
+app.add_routes([web.get('/reset', handle),
                 web.post('/rl', rl_handler),
                 web.post('/video', post_handler)])
 
